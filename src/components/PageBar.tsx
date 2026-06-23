@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { Page, ContextMenuState } from '../types';
+import type { Page } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { cn } from '../lib/utils';
 import { Plus, Trash2 } from 'lucide-react';
@@ -15,7 +15,7 @@ interface PageTabProps {
 }
 
 function PageTab({ page, isActive, onClick, onContextMenu, onDelete }: PageTabProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: page.id,
     data: { type: 'page', page },
   });

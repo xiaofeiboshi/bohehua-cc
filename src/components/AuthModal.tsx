@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { cn } from '../lib/utils';
 import { LogIn, UserPlus, X } from 'lucide-react';
 
 interface AuthModalProps {

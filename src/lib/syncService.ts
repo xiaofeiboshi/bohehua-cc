@@ -10,7 +10,6 @@ async function saveToSupabase<T extends Page | Component | Item>(
   userId: string
 ): Promise<void> {
   const record = { ...data, user_id: userId };
-  // @ts-expect-error - supabase-js 类型推断问题，运行时正常
   const { error } = await supabase.from(table).upsert(record, { onConflict: 'id' });
   if (error && error.code !== '23505') {
     console.error(`保存 ${table} 失败:`, error.message);
@@ -19,7 +18,6 @@ async function saveToSupabase<T extends Page | Component | Item>(
 
 // 通用删除函数
 async function deleteFromSupabase(table: TableName, id: string): Promise<void> {
-  // @ts-expect-error - supabase-js 类型推断
   const { error } = await supabase.from(table).delete().eq('id', id);
   if (error) console.error(`删除 ${table} 失败:`, error.message);
 }

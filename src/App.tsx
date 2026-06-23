@@ -24,7 +24,7 @@ import { EditDialog } from './components/EditDialog';
 import { AuthModal } from './components/AuthModal';
 import type { ContextMenuState, ContextMenuTarget } from './types';
 import { isValidUrl, normalizeUrl } from './lib/utils';
-import { Bookmark, Columns2, Image, LogIn, LogOut, User } from 'lucide-react';
+import { Bookmark, Columns2, Image, LogIn, LogOut } from 'lucide-react';
 
 function getDropTargetFromPoint(x: number, y: number): string | null {
   const el = document.elementFromPoint(x, y);
@@ -48,7 +48,7 @@ function App() {
   const {
     pages, components, items, currentPageId,
     addPage, renamePage, deletePage, setPageColumns, setPageBackground,
-    addComponent, renameComponent,
+    addComponent, renameComponent, deleteComponent,
     fetchAndAddItem, moveItem, copyItem, deleteItem,
     reorderItems, reorderComponents, reorderPages,
     initAuth, signOut,
@@ -98,8 +98,6 @@ function App() {
   const pageComponents = components
     .filter(c => c.pageId === currentPageId)
     .sort((a, b) => a.sortOrder - b.sortOrder);
-  const componentIds = pageComponents.map(c => c.id);
-
   const getComponentItems = useCallback(
     (componentId: string) => items.filter(i => i.componentId === componentId),
     [items]

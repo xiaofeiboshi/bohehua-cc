@@ -7,13 +7,12 @@ import { ExternalLink, GripVertical, Heart, Trash2 } from 'lucide-react';
 
 interface ItemCardProps {
   item: Item;
-  onEdit?: (item: Item) => void;
   onDelete?: (itemId: string) => void;
   onFavorite?: (itemId: string) => void;
   onContextMenu?: (e: React.MouseEvent, itemId: string) => void;
 }
 
-export function ItemCard({ item, onEdit, onDelete, onFavorite, onContextMenu }: ItemCardProps) {
+export function ItemCard({ item, onDelete, onFavorite, onContextMenu }: ItemCardProps) {
   const [imgError, setImgError] = useState(false);
 
   const {
