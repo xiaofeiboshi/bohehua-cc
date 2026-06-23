@@ -193,7 +193,6 @@ export function ComponentContainer({ component, items, onContextMenu, isOver }: 
                   <ItemCard
                     key={item.id}
                     item={item}
-                    onEdit={setEditingItem}
                     onDelete={deleteItem}
                     onFavorite={toggleFavorite}
                     onContextMenu={(e, id) => onContextMenu(e, 'item', id)}
