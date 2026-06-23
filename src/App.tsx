@@ -193,16 +193,34 @@ function App() {
   // ===== 拖拽核心：多容器 Sortable（条目 ↔ 组件 ↔ 分页） =====
   // ===================================================================
 
-  // ===== 书签导入处理 =====
+  // ===== 书签导入处理（带撤销功能） =====
+  const [undoImport, setUndoImport] = useState<{
+    componentId: string;
+    count: number;
+  } | null>(null);
+
   const handleBookmarkImport = useCallback(
     (bookmarks: Array<{ title: string; url: string }>, targetComponentId: string) => {
       if (!currentPageId) return;
       bookmarks.forEach(bm => {
         addItem(targetComponentId, bm.title, bm.url, '', 'manual');
       });
+      setUndoImport({ componentId: targetComponentId, count: bookmarks.length });
     },
     [currentPageId, addItem]
   );
+
+  const handleUndoImport = () => {
+    if (!undoImport) return;
+    const { componentId, count } = undoImport;
+    const currentItems = useAppStore.getState().items;
+    const toDelete = currentItems
+      .filter(i => i.componentId === componentId)
+      .sort((a, b) => b.sortOrder - a.sortOrder)
+      .slice(0, count);
+    toDelete.forEach(i => deleteItem(i.id));
+    setUndoImport(null);
+  };
 
   // --- 从 active/over 的 data 中提取组件ID ---
   const getComponentIdFromData = (data: any): string | null => {
@@ -620,6 +638,29 @@ function App() {
             <div className="bg-white/90 dark:bg-gray-800/90 rounded-2xl shadow-2xl px-8 py-6 text-center border-2 border-dashed border-blue-400 pointer-events-none">
               <p className="text-lg font-medium text-gray-800 dark:text-gray-100">拖到组件中放置链接</p>
               <p className="text-sm text-gray-500 mt-1">松开以添加到组件</p>
+            </div>
+          </div>
+        )}
+
+        {/* 导入撤销提示 */}
+        {undoImport && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-800/95 dark:bg-gray-700/95 backdrop-blur-lg rounded-xl shadow-2xl border border-gray-600/50 px-5 py-3 flex items-center gap-4 animate-in slide-up">
+            <span className="text-sm text-gray-100">
+              已导入 {undoImport.count} 个书签
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleUndoImport}
+                className="px-3 py-1.5 text-xs font-medium text-white bg-red-600/80 hover:bg-red-600 rounded-lg transition-colors"
+              >
+                撤销导入
+              </button>
+              <button
+                onClick={() => setUndoImport(null)}
+                className="px-3 py-1.5 text-xs font-medium text-gray-300 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                知道了
+              </button>
             </div>
           </div>
         )}
