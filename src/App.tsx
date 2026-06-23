@@ -22,9 +22,10 @@ import { ComponentContainer } from './components/ComponentContainer';
 import { ContextMenu } from './components/ContextMenu';
 import { EditDialog } from './components/EditDialog';
 import { AuthModal } from './components/AuthModal';
+import { BookmarkImport } from './components/BookmarkImport';
 import type { ContextMenuState, ContextMenuTarget } from './types';
 import { isValidUrl, normalizeUrl } from './lib/utils';
-import { Bookmark, Columns2, Image, LogIn, LogOut } from 'lucide-react';
+import { Bookmark, Columns2, Image, LogIn, LogOut, Upload } from 'lucide-react';
 
 function getDropTargetFromPoint(x: number, y: number): string | null {
   const el = document.elementFromPoint(x, y);
@@ -57,6 +58,8 @@ function App() {
 
   // ===== 认证 =====
   const [showAuthModal, setShowAuthModal] = useState(false);
+  // ===== 书签导入 =====
+  const [showBookmarkImport, setShowBookmarkImport] = useState(false);
 
   // 初始化认证
   useEffect(() => { initAuth(); }, [initAuth]);
@@ -189,6 +192,19 @@ function App() {
   // ===================================================================
   // ===== 拖拽核心：多容器 Sortable（条目 ↔ 组件 ↔ 分页） =====
   // ===================================================================
+
+  // ===== 书签导入处理 =====
+  const handleBookmarkImport = useCallback(
+    (bookmarks: Array<{ title: string; url: string }>, targetComponentId: string) => {
+      if (!currentPageId) return;
+      let imported = 0;
+      bookmarks.forEach(bm => {
+        addItem(targetComponentId, bm.title, bm.url, '', 'manual');
+        imported++;
+      });
+    },
+    [currentPageId, addItem]
+  );
 
   // --- 从 active/over 的 data 中提取组件ID ---
   const getComponentIdFromData = (data: any): string | null => {
@@ -465,6 +481,11 @@ function App() {
                   )}
                 </div>
 
+                <button onClick={() => setShowBookmarkImport(true)} className="px-2.5 py-1.5 text-xs rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 transition-all flex items-center gap-1">
+                  <Upload className="w-3 h-3" />
+                  <span>导入</span>
+                </button>
+
                 <button onClick={() => addPage()} className="px-2.5 py-1.5 text-xs rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 transition-all">
                   + 分页
                 </button>
@@ -581,6 +602,14 @@ function App() {
             open={showAuthModal}
             onClose={() => setShowAuthModal(false)}
             onAuthSuccess={() => setShowAuthModal(false)}
+          />
+
+          {/* 书签导入对话框 */}
+          <BookmarkImport
+            open={showBookmarkImport}
+            onClose={() => setShowBookmarkImport(false)}
+            onImport={handleBookmarkImport}
+            components={pageComponents.map(c => ({ id: c.id, title: c.title }))}
           />
         </DndContext>
 
