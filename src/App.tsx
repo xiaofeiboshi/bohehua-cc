@@ -50,7 +50,7 @@ function App() {
     pages, components, items, currentPageId,
     addPage, renamePage, deletePage, setPageColumns, setPageBackground,
     addComponent, renameComponent, deleteComponent,
-    fetchAndAddItem, moveItem, copyItem, deleteItem,
+    addItem, fetchAndAddItem, moveItem, copyItem, deleteItem,
     reorderItems, reorderComponents, reorderPages,
     initAuth, signOut,
     isAuthenticated, isAuthLoading, userEmail,
@@ -197,10 +197,8 @@ function App() {
   const handleBookmarkImport = useCallback(
     (bookmarks: Array<{ title: string; url: string }>, targetComponentId: string) => {
       if (!currentPageId) return;
-      let imported = 0;
       bookmarks.forEach(bm => {
         addItem(targetComponentId, bm.title, bm.url, '', 'manual');
-        imported++;
       });
     },
     [currentPageId, addItem]
