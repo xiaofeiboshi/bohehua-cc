@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 右键菜单覆盖层 */
+.context-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+}
+
+/* 拖拽中的条目样式 */
+.dragging-item {
+  opacity: 0.5;
+  z-index: 1000;
+}
+
+/* 放置目标高亮 */
+.drop-target {
+  background: rgba(59, 130, 246, 0.1);
+  border: 2px dashed rgba(59, 130, 246, 0.4);
+  border-radius: 8px;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
