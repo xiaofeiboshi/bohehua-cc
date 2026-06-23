@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { X, Upload, FileText, Check } from 'lucide-react';
 
 interface BookmarkEntry {
@@ -54,13 +54,6 @@ export function BookmarkImport({ open, onClose, onImport, components }: Bookmark
 
   if (!open) return null;
 
-  // 默认选择第一个组件
-  useEffect(() => {
-    if (!targetComponent && components.length > 0) {
-      setTargetComponent(components[0].id);
-    }
-  }, [components, targetComponent]);
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -94,8 +87,9 @@ export function BookmarkImport({ open, onClose, onImport, components }: Bookmark
 
   const handleImport = () => {
     const selected = bookmarks.filter((_, i) => selectedIds.has(i));
-    if (selected.length === 0 || !targetComponent) return;
-    onImport(selected, targetComponent);
+    const compId = targetComponent || components[0]?.id;
+    if (selected.length === 0 || !compId) return;
+    onImport(selected, compId);
     setBookmarks([]);
     setSelectedIds(new Set());
     onClose();
