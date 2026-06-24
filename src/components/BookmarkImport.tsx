@@ -39,46 +39,68 @@ interface BookmarkImportProps {
 // ===== 解析书签 HTML（三级文件夹） =====
 let parseFolderStack: string[] = [];
 
-/** Chrome 书签 HTML 结构：
- *  书签栏（顶层容器，跳过）
- *    ├ 工作相关          → 作为【分页】
- *    │  ├ AI工具         → 作为该分页下的【组件】
- *    │  │  ├ 聊天对话    → 作为该组件内的【分组】
- *    │  │  └ 图像生成
- *    │  └ 效率工具
- *    └ 娱乐生活          → 作为【分页】
+/**
+ * 解析 Chrome 书签 HTML 文件
  *
- *  其他书签（顶层容器，归入未分类）
- *    ├ xxx               → 作为"未分类"分页下的组件
+ * Chrome 书签 HTML 结构：
+ *   <H1>Bookmarks</H1>
+ *   <DL>
+ *     <DT><H3>书签栏</H3>             ← 顶层容器，跳过
+ *     <DL>
+ *       <DT><H3>一切皆AI</H3>          ← 一级文件夹 → 作为【分页】
+ *       <DL>
+ *         <DT><H3>新工具</H3>          ← 二级文件夹 → 作为【组件】
+ *         <DL>
+ *           <DT><A HREF="...">...</A> ← 书签条目
+ *         </DL>
+ *       </DL>
+ *     </DL>
+ *   </DL>
  */
 function parseBookmarkHtml(html: string): ParsedPage[] {
   parseFolderStack = [];
   const pageMap = new Map<string, ParsedPage>();
 
   const getOrCreatePage = (name: string) => {
+    // 防止将顶层容器名作为分页名创建
+    if (['书签栏', '书签菜单', 'Bookmarks', 'Other Bookmarks', '其他书签'].includes(name)) {
+      return null;
+    }
     if (!pageMap.has(name)) pageMap.set(name, { name, items: [], components: [] });
     return pageMap.get(name)!;
   };
 
-  const getOrCreateComponent = (page: ParsedPage, name: string) => {
-    if (!name) return null;
+  const getOrCreateComponent = (page: ParsedPage | null, name: string) => {
+    if (!page || !name) return null;
     let comp = page.components.find(c => c.name === name);
     if (!comp) { comp = { name, items: [] }; page.components.push(comp); }
     return comp;
+  };
+
+  // 辅助函数：安全地添加书签到分页
+  const addToPage = (pageName: string, title: string, url: string) => {
+    const page = getOrCreatePage(pageName);
+    if (page) page.items.push({ title, url });
   };
 
   const lines = html.split('\n');
   for (const line of lines) {
     const trimmed = line.trim();
 
+    // 检测文件夹 <DT><H3>
     const folderMatch = trimmed.match(/<DT><H3[^>]*>(.*?)<\/H3>/i);
-    if (folderMatch) { parseFolderStack.push(folderMatch[1].trim()); continue; }
+    if (folderMatch) {
+      parseFolderStack.push(folderMatch[1].trim());
+      continue;
+    }
 
+    // 检测文件夹结束
     if (trimmed.startsWith('</DL>') || trimmed.startsWith('</dl>')) {
       if (parseFolderStack.length > 0) parseFolderStack.pop();
       continue;
     }
 
+    // 检测书签 <A HREF>
     const bookmarkMatch = trimmed.match(/<A HREF="([^"]*)"[^>]*>(.*?)<\/A>/i);
     if (!bookmarkMatch) continue;
     const url = bookmarkMatch[1].trim();
@@ -87,20 +109,26 @@ function parseBookmarkHtml(html: string): ParsedPage[] {
 
     const depth = parseFolderStack.length;
 
-    // depth = 0：不在任何文件夹
-    if (depth === 0) { getOrCreatePage('未分类').items.push({ title, url }); continue; }
+    // 深度 0：不在任何文件夹 → 未分类
+    if (depth === 0) {
+      addToPage('未分类', title, url);
+      continue;
+    }
 
     const topName = parseFolderStack[0];
 
-    // --- "书签栏"下 → 跳过这一层，它的子文件夹作为分页 ---
-    if (topName === '书签栏' || topName.includes('Bookmarks')) {
+    // 顶层容器（书签栏/Other Bookmarks等）→ 跳过
+    if (['书签栏', '书签菜单', 'Bookmarks', 'Other Bookmarks', '其他书签'].includes(topName)) {
       if (depth === 1) {
-        getOrCreatePage('未分类').items.push({ title, url });
+        // 直接放在顶层容器下的书签 → 未分类
+        addToPage('未分类', title, url);
       } else if (depth === 2) {
+        // 一级文件夹（如"一切皆AI"）→ 作为分页，内部书签→默认组件
         const page = getOrCreatePage(parseFolderStack[1]);
         const comp = getOrCreateComponent(page, '默认');
         if (comp) comp.items.push({ title, url });
       } else {
+        // depth >= 3：二级文件夹（如"新工具"）→ 作为组件
         const page = getOrCreatePage(parseFolderStack[1]);
         const comp = getOrCreateComponent(page, parseFolderStack[2]);
         if (comp) {
@@ -111,26 +139,11 @@ function parseBookmarkHtml(html: string): ParsedPage[] {
       continue;
     }
 
-    // --- "其他书签"下 → 全部归入未分类 ---
-    if (topName === '其他书签') {
-      const page = getOrCreatePage('未分类');
-      if (depth === 1) { page.items.push({ title, url }); }
-      else if (depth === 2) {
-        const comp = getOrCreateComponent(page, parseFolderStack[1]);
-        if (comp) comp.items.push({ title, url });
-      } else {
-        const comp = getOrCreateComponent(page, parseFolderStack[1]);
-        if (comp) {
-          const group = depth >= 3 ? parseFolderStack[2] : undefined;
-          comp.items.push({ title, url, group });
-        }
-      }
-      continue;
-    }
-
-    // --- 其他情况（非标准） ---
-    if (depth === 1) { getOrCreatePage(topName).items.push({ title, url }); }
-    else {
+    // 其他情况（非标准结构）
+    if (depth === 1) {
+      const page = getOrCreatePage(topName);
+      if (page) page.items.push({ title, url });
+    } else {
       const page = getOrCreatePage(topName);
       const comp = getOrCreateComponent(page, parseFolderStack[1]);
       if (comp) {
@@ -140,30 +153,8 @@ function parseBookmarkHtml(html: string): ParsedPage[] {
     }
   }
 
-  // 过滤掉顶层的容器名称（如"书签栏"），它们不应该作为分页
-  const topLevelContainers = ['书签栏', 'Bookmarks', '书签菜单', '其他书签'];
-  const results = Array.from(pageMap.values());
-
-  // 如果有"书签栏"被意外创建，把它的内容合并到"未分类"
-  const bookmarkBar = results.find(p => p.name === '书签栏');
-  if (bookmarkBar) {
-    const unclassified = getOrCreatePage('未分类');
-    // 把书签栏的直接条目移到未分类
-    unclassified.items.push(...bookmarkBar.items);
-    // 把书签栏的组件也移到未分类
-    for (const comp of bookmarkBar.components) {
-      // 检查未分类是否已有同名组件，如有则合并
-      const existing = unclassified.components.find(c => c.name === comp.name);
-      if (existing) {
-        existing.items.push(...comp.items);
-      } else {
-        unclassified.components.push(comp);
-      }
-    }
-  }
-
-  return results.filter(p => {
-    if (topLevelContainers.includes(p.name)) return false;
+  return Array.from(pageMap.values()).filter(p => {
+    // 移除空分页
     if (p.items.length === 0 && p.components.length === 0) return false;
     return true;
   });
