@@ -140,7 +140,33 @@ function parseBookmarkHtml(html: string): ParsedPage[] {
     }
   }
 
-  return Array.from(pageMap.values());
+  // 过滤掉顶层的容器名称（如"书签栏"），它们不应该作为分页
+  const topLevelContainers = ['书签栏', 'Bookmarks', '书签菜单', '其他书签'];
+  const results = Array.from(pageMap.values());
+
+  // 如果有"书签栏"被意外创建，把它的内容合并到"未分类"
+  const bookmarkBar = results.find(p => p.name === '书签栏');
+  if (bookmarkBar) {
+    const unclassified = getOrCreatePage('未分类');
+    // 把书签栏的直接条目移到未分类
+    unclassified.items.push(...bookmarkBar.items);
+    // 把书签栏的组件也移到未分类
+    for (const comp of bookmarkBar.components) {
+      // 检查未分类是否已有同名组件，如有则合并
+      const existing = unclassified.components.find(c => c.name === comp.name);
+      if (existing) {
+        existing.items.push(...comp.items);
+      } else {
+        unclassified.components.push(comp);
+      }
+    }
+  }
+
+  return results.filter(p => {
+    if (topLevelContainers.includes(p.name)) return false;
+    if (p.items.length === 0 && p.components.length === 0) return false;
+    return true;
+  });
 }
 
 export function BookmarkImport({ open, onClose, onImport }: BookmarkImportProps) {
