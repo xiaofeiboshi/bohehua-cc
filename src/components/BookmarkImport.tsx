@@ -116,7 +116,7 @@ export function BookmarkImport({ open, onClose, onImport }: BookmarkImportProps)
     reader.onload = (event) => {
       const html = event.target?.result as string;
       const parsed = parseBookmarkHtml(html);
-      setPages(parsed.map(p => ({ ...p, selected: true })));
+      setPages(parsed.map(p => ({ name: p.name, components: p.components, directItems: p.items, selected: true })));
       setExpandedPages(new Set(parsed.map(p => p.name)));
     };
     reader.readAsText(file);
@@ -145,7 +145,7 @@ export function BookmarkImport({ open, onClose, onImport }: BookmarkImportProps)
     onImport(selectedPages.map(p => ({
       name: p.name,
       components: p.components,
-      directItems: p.items,
+      directItems: p.directItems,
     })));
     setPages([]);
     onClose();
@@ -157,7 +157,7 @@ export function BookmarkImport({ open, onClose, onImport }: BookmarkImportProps)
   };
 
   const totalSelected = pages.filter(p => p.selected).reduce((sum, p) => {
-    return sum + p.items.length + p.components.reduce((s, c) => s + c.items.length, 0);
+    return sum + p.directItems.length + p.components.reduce((s, c) => s + c.items.length, 0);
   }, 0);
 
   return (
@@ -201,7 +201,7 @@ export function BookmarkImport({ open, onClose, onImport }: BookmarkImportProps)
               {/* 分页列表 */}
               <div className="space-y-2 max-h-[55vh] overflow-y-auto">
                 {pages.map((page) => {
-                  const totalItems = page.items.length + page.components.reduce((s, c) => s + c.items.length, 0);
+                  const totalItems = page.directItems.length + page.components.reduce((s, c) => s + c.items.length, 0);
                   const isExpanded = expandedPages.has(page.name);
                   return (
                     <div key={page.name} className={`rounded-xl border transition-all ${page.selected ? 'border-blue-200 dark:border-blue-700 bg-blue-50/40 dark:bg-blue-900/10' : 'border-gray-200 dark:border-gray-700 opacity-60'}`}>
@@ -227,12 +227,12 @@ export function BookmarkImport({ open, onClose, onImport }: BookmarkImportProps)
                       {isExpanded && (
                         <div className="pb-3 pl-14 pr-4 space-y-1.5">
                           {/* 直接放在一级下的书签 */}
-                          {page.items.length > 0 && (
+                          {page.directItems.length > 0 && (
                             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/50 dark:bg-gray-700/30">
                               <Bookmark className="w-4 h-4 text-gray-400 flex-shrink-0" />
                               <span className="text-xs text-gray-500 dark:text-gray-400 flex-1">本级书签</span>
                               <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
-                                {page.items.length} 条 → <span className="text-blue-500 font-medium">默认组件</span>
+                                {page.directItems.length} 条 → <span className="text-blue-500 font-medium">默认组件</span>
                               </span>
                             </div>
                           )}

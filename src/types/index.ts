@@ -29,7 +29,6 @@ export interface Item {
   tags: string[];
   group?: string; // 分组名（浏览器书签的子文件夹名）
   source: 'manual' | 'auto' | 'external-drag';
-  source: 'manual' | 'auto' | 'external-drag';
   isFavorite: boolean;
   sortOrder: number;
   createdAt: string;
