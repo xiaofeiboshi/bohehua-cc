@@ -27,6 +27,8 @@ export interface Item {
   description?: string;
   icon?: string;
   tags: string[];
+  group?: string; // 分组名（浏览器书签的子文件夹名）
+  source: 'manual' | 'auto' | 'external-drag';
   source: 'manual' | 'auto' | 'external-drag';
   isFavorite: boolean;
   sortOrder: number;
@@ -85,14 +87,14 @@ export interface AppStore {
   setPageBackground: (pageId: string, background: string) => void;
 
   // 组件管理
-  addComponent: (pageId: string, title?: string, type?: ComponentType) => void;
+  addComponent: (pageId: string, title?: string, type?: ComponentType) => string; // 返回组件 ID
   renameComponent: (componentId: string, title: string) => void;
   deleteComponent: (componentId: string) => void;
   moveComponent: (componentId: string, targetPageId: string, sortOrder?: number) => void;
   reorderComponents: (pageId: string, orderedIds: string[]) => void;
 
   // 条目管理
-  addItem: (componentId: string, title: string, url: string, description?: string, source?: 'manual' | 'auto' | 'external-drag') => void;
+  addItem: (componentId: string, title: string, url: string, description?: string, source?: 'manual' | 'auto' | 'external-drag', group?: string) => void;
   editItem: (itemId: string, updates: Partial<Item>) => void;
   deleteItem: (itemId: string) => void;
   moveItem: (itemId: string, targetComponentId: string, sortOrder?: number) => void;

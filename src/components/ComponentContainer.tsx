@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -7,13 +7,13 @@ import { useAppStore } from '../store/useAppStore';
 import { ItemCard } from './ItemCard';
 import { EditDialog } from './EditDialog';
 import { cn, isValidUrl, normalizeUrl } from '../lib/utils';
-import { GripVertical, Plus, Link, MoreHorizontal, Loader2 } from 'lucide-react';
+import { GripVertical, Plus, Link, MoreHorizontal, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface ComponentContainerProps {
   component: ComponentType;
   items: Item[];
   onContextMenu: (e: React.MouseEvent, type: 'component' | 'item', id: string) => void;
-  isOver?: boolean; // 是否正在被拖拽悬停（从App.tsx传入）
+  isOver?: boolean;
 }
 
 export function ComponentContainer({ component, items, onContextMenu, isOver }: ComponentContainerProps) {
@@ -24,8 +24,9 @@ export function ComponentContainer({ component, items, onContextMenu, isOver }: 
   const [newTitle, setNewTitle] = useState('');
   const [isFetching, setIsFetching] = useState(false);
   const urlInputRef = useRef<HTMLInputElement>(null);
+  // 折叠状态：key=分组名，value=是否展开
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
-  // useSortable：组件自身的拖拽（用于跨组件移动条目时作为放置目标，以及组件排序）
   const {
     attributes,
     listeners,
@@ -57,14 +58,11 @@ export function ComponentContainer({ component, items, onContextMenu, isOver }: 
     setNewTitle('');
     try {
       await fetchAndAddItem(component.id, cleanUrl);
-    } catch {
-      // 抓取出错也不影响，已经用域名添加了
-    }
+    } catch {}
     setIsFetching(false);
     setShowNewItemInput(false);
   };
 
-  // 编辑条目
   const handleEdit = (values: Record<string, string>) => {
     if (!editingItem) return;
     editItem(editingItem.id, {
@@ -75,7 +73,6 @@ export function ComponentContainer({ component, items, onContextMenu, isOver }: 
     setEditingItem(null);
   };
 
-  // 浏览器外部链接拖入
   const handleNativeDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -91,8 +88,29 @@ export function ComponentContainer({ component, items, onContextMenu, isOver }: 
     }
   };
 
-  const sortedItems = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
-  const itemIds = sortedItems.map(i => i.id);
+  // 按 group 分组
+  const { grouped, ungrouped } = useMemo(() => {
+    const sorted = [...items].sort((a, b) => a.sortOrder - b.sortOrder);
+    const groups: Record<string, Item[]> = {};
+    const noGroup: Item[] = [];
+    sorted.forEach(item => {
+      if (item.group) {
+        if (!groups[item.group]) groups[item.group] = [];
+        groups[item.group].push(item);
+      } else {
+        noGroup.push(item);
+      }
+    });
+    return { grouped: groups, ungrouped: noGroup };
+  }, [items]);
+
+  const allItemIds = useMemo(() => [...items].sort((a, b) => a.sortOrder - b.sortOrder).map(i => i.id), [items]);
+
+  const toggleGroup = (name: string) => {
+    setCollapsedGroups(prev => ({ ...prev, [name]: !prev[name] }));
+  };
+
+  const groupNames = Object.keys(grouped).sort();
 
   return (
     <div
@@ -108,7 +126,7 @@ export function ComponentContainer({ component, items, onContextMenu, isOver }: 
       onDrop={handleNativeDrop}
       onContextMenu={(e) => onContextMenu(e, 'component', component.id)}
     >
-      {/* 标题栏 — 组件拖拽手柄 */}
+      {/* 标题栏 */}
       <div
         {...attributes}
         {...listeners}
@@ -119,14 +137,12 @@ export function ComponentContainer({ component, items, onContextMenu, isOver }: 
           {component.title}
         </h3>
         <span className="text-xs text-gray-400 tabular-nums">{items.length}</span>
-
         <button
           onClick={(e) => { e.stopPropagation(); onContextMenu(e as any, 'component', component.id); }}
           className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-gray-700/50 transition-colors opacity-0 group-hover/component:opacity-100"
         >
           <MoreHorizontal className="w-4 h-4" />
         </button>
-
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -178,26 +194,67 @@ export function ComponentContainer({ component, items, onContextMenu, isOver }: 
         </div>
       )}
 
-      {/* 条目列表 */}
+      {/* 条目列表（按分组展示） */}
       <div className="p-2">
-        <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+        <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
           <div className="min-h-[40px]">
-            {sortedItems.length === 0 ? (
+            {items.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-gray-400 dark:text-gray-500">
                 <Link className="w-6 h-6 mb-2 opacity-50" />
                 <p className="text-xs">从浏览器拖入链接，或点击 + 添加</p>
               </div>
             ) : (
-              <div className="space-y-0.5">
-                {sortedItems.map((item) => (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    onDelete={deleteItem}
-                    onFavorite={toggleFavorite}
-                    onContextMenu={(e, id) => onContextMenu(e, 'item', id)}
-                  />
-                ))}
+              <div className="space-y-1">
+                {/* 无分组的条目 */}
+                {ungrouped.length > 0 && (
+                  <div className="space-y-0.5">
+                    {ungrouped.map(item => (
+                      <ItemCard
+                        key={item.id}
+                        item={item}
+                        onDelete={deleteItem}
+                        onFavorite={toggleFavorite}
+                        onContextMenu={(e, id) => onContextMenu(e, 'item', id)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* 分组的条目 */}
+                {groupNames.map(groupName => {
+                  const groupItems = grouped[groupName];
+                  const isCollapsed = collapsedGroups[groupName];
+                  return (
+                    <div key={groupName}>
+                      {/* 分组标题 */}
+                      <div
+                        onClick={() => toggleGroup(groupName)}
+                        className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer select-none rounded-lg hover:bg-white/5 transition-colors"
+                      >
+                        {isCollapsed ? (
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        )}
+                        <span>{groupName}</span>
+                        <span className="text-gray-400 tabular-nums">({groupItems.length})</span>
+                      </div>
+                      {!isCollapsed && (
+                        <div className="space-y-0.5 ml-1 pl-3 border-l border-white/10 dark:border-white/5">
+                          {groupItems.map(item => (
+                            <ItemCard
+                              key={item.id}
+                              item={item}
+                              onDelete={deleteItem}
+                              onFavorite={toggleFavorite}
+                              onContextMenu={(e, id) => onContextMenu(e, 'item', id)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

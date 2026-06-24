@@ -191,6 +191,7 @@ export const useAppStore = create<AppStore>()(
         };
         set({ components: [...components, newComponent] });
         if (userId) syncComponent(newComponent, userId);
+        return newComponent.id; // 返回创建的组件 ID
       },
 
       renameComponent: (componentId, title) => {
@@ -240,7 +241,7 @@ export const useAppStore = create<AppStore>()(
       },
 
       // ===== 条目管理 =====
-      addItem: (componentId, title, url, description, source) => {
+      addItem: (componentId, title, url, description, source, group) => {
         const { items, userId } = get();
         const componentItems = items.filter(i => i.componentId === componentId);
         const newItem: Item = {
@@ -250,6 +251,7 @@ export const useAppStore = create<AppStore>()(
           url,
           description: description || '',
           tags: [],
+          group: group || undefined,
           source: source || 'manual',
           isFavorite: false,
           sortOrder: componentItems.length,
