@@ -195,36 +195,54 @@ function App() {
 
   // ===== 书签导入处理（带撤销功能） =====
   const [undoImport, setUndoImport] = useState<{
-    componentIds: string[];
+    pageIds: string[];
     totalCount: number;
   } | null>(null);
   const undoImportTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleBookmarkImport = useCallback(
-    (folders: Array<{ name: string; items: Array<{ title: string; url: string; group?: string }> }>) => {
-      if (!currentPageId) return;
-      const createdIds: string[] = [];
+    (importPages: Array<{
+      name: string;
+      components: Array<{ name: string; items: Array<{ title: string; url: string; group?: string }> }>;
+      directItems: Array<{ title: string; url: string }>;
+    }>) => {
+      const createdPageIds: string[] = [];
+      let totalItems = 0;
 
-      folders.forEach(folder => {
-        // 创建新组件
-        const compId = addComponent(currentPageId!, folder.name);
-        createdIds.push(compId);
-        // 导入书签到组件（带分组）
-        folder.items.forEach(bm => {
-          addItem(compId, bm.title, bm.url, '', 'manual', bm.group);
+      importPages.forEach(importPage => {
+        // 创建分页
+        const newPageId = addPage(importPage.name);
+        createdPageIds.push(newPageId);
+
+        // 处理直接放在一级下的书签 → 创建"默认"组件
+        if (importPage.directItems.length > 0) {
+          const defaultCompId = addComponent(newPageId, '默认');
+          importPage.directItems.forEach(item => {
+            addItem(defaultCompId, item.title, item.url, '', 'manual');
+            totalItems++;
+          });
+        }
+
+        // 处理二级文件夹 → 创建组件
+        importPage.components.forEach(comp => {
+          const compId = addComponent(newPageId, comp.name);
+          comp.items.forEach(item => {
+            addItem(compId, item.title, item.url, '', 'manual', item.group);
+            totalItems++;
+          });
         });
       });
 
       if (undoImportTimer.current) clearTimeout(undoImportTimer.current);
-      setUndoImport({ componentIds: createdIds, totalCount: folders.reduce((s, f) => s + f.items.length, 0) });
+      setUndoImport({ pageIds: createdPageIds, totalCount: totalItems });
     },
-    [currentPageId, addComponent, addItem]
+    [addPage, addComponent, addItem]
   );
 
   const handleUndoImport = () => {
     if (!undoImport) return;
-    // 删除创建的组件（会级联删除所有条目）
-    undoImport.componentIds.forEach(id => deleteComponent(id));
+    // 删除创建的分页（级联删除所有组件和条目）
+    undoImport.pageIds.forEach(id => deletePage(id));
     setUndoImport(null);
   };
 

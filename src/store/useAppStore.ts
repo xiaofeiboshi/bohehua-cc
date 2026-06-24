@@ -115,6 +115,7 @@ export const useAppStore = create<AppStore>()(
         };
         set({ pages: [...pages, newPage], currentPageId: newPage.id });
         if (userId) syncPage(newPage, userId);
+        return newPage.id;
       },
 
       renamePage: (pageId, title) => {

@@ -79,7 +79,7 @@ export interface AppStore {
 
   // 页面管理
   setCurrentPage: (pageId: string) => void;
-  addPage: (title?: string) => void;
+  addPage: (title?: string) => string; // 返回分页 ID
   renamePage: (pageId: string, title: string) => void;
   deletePage: (pageId: string) => void;
   reorderPages: (orderedIds: string[]) => void;
