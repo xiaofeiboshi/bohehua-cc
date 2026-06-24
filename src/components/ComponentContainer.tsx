@@ -21,7 +21,6 @@ export function ComponentContainer({ component, items, onContextMenu, isOver }: 
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [showNewItemInput, setShowNewItemInput] = useState(false);
   const [newUrl, setNewUrl] = useState('');
-  const [newTitle, setNewTitle] = useState('');
   const [isFetching, setIsFetching] = useState(false);
   const urlInputRef = useRef<HTMLInputElement>(null);
   const [activeGroup, setActiveGroup] = useState<string | null>(null); // null = 显示无分组项
@@ -46,7 +45,6 @@ export function ComponentContainer({ component, items, onContextMenu, isOver }: 
     if (!isValidUrl(normalizeUrl(url))) { setShowNewItemInput(false); return; }
     setIsFetching(true);
     setNewUrl('');
-    setNewTitle('');
     try { await fetchAndAddItem(component.id, normalizeUrl(url)); } catch {}
     setIsFetching(false);
     setShowNewItemInput(false);
@@ -122,7 +120,7 @@ export function ComponentContainer({ component, items, onContextMenu, isOver }: 
           <div className="flex gap-2">
             <input ref={urlInputRef} type="url" value={newUrl} onChange={e => setNewUrl(e.target.value)} placeholder="输入网址..."
               className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-blue-200 dark:border-blue-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-              onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); if (e.key === 'Escape') { setShowNewItemInput(false); setNewUrl(''); setNewTitle(''); }}} />
+              onKeyDown={e => { if (e.key === 'Enter') handleQuickAdd(); if (e.key === 'Escape') { setShowNewItemInput(false); setNewUrl(''); }}} />
             <button onClick={handleQuickAdd} disabled={isFetching}
               className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-lg transition-colors flex items-center gap-1.5">
               {isFetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
