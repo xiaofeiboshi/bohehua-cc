@@ -39,19 +39,40 @@ interface BookmarkImportProps {
 // ===== 解析书签 HTML（三级文件夹） =====
 let parseFolderStack: string[] = [];
 
+/** Chrome 书签 HTML 结构：
+ *  书签栏（顶层容器，跳过）
+ *    ├ 工作相关          → 作为【分页】
+ *    │  ├ AI工具         → 作为该分页下的【组件】
+ *    │  │  ├ 聊天对话    → 作为该组件内的【分组】
+ *    │  │  └ 图像生成
+ *    │  └ 效率工具
+ *    └ 娱乐生活          → 作为【分页】
+ *
+ *  其他书签（顶层容器，归入未分类）
+ *    ├ xxx               → 作为"未分类"分页下的组件
+ */
 function parseBookmarkHtml(html: string): ParsedPage[] {
   parseFolderStack = [];
   const pageMap = new Map<string, ParsedPage>();
-  const lines = html.split('\n');
 
+  const getOrCreatePage = (name: string) => {
+    if (!pageMap.has(name)) pageMap.set(name, { name, items: [], components: [] });
+    return pageMap.get(name)!;
+  };
+
+  const getOrCreateComponent = (page: ParsedPage, name: string) => {
+    if (!name) return null;
+    let comp = page.components.find(c => c.name === name);
+    if (!comp) { comp = { name, items: [] }; page.components.push(comp); }
+    return comp;
+  };
+
+  const lines = html.split('\n');
   for (const line of lines) {
     const trimmed = line.trim();
 
     const folderMatch = trimmed.match(/<DT><H3[^>]*>(.*?)<\/H3>/i);
-    if (folderMatch) {
-      parseFolderStack.push(folderMatch[1].trim());
-      continue;
-    }
+    if (folderMatch) { parseFolderStack.push(folderMatch[1].trim()); continue; }
 
     if (trimmed.startsWith('</DL>') || trimmed.startsWith('</dl>')) {
       if (parseFolderStack.length > 0) parseFolderStack.pop();
@@ -60,42 +81,62 @@ function parseBookmarkHtml(html: string): ParsedPage[] {
 
     const bookmarkMatch = trimmed.match(/<A HREF="([^"]*)"[^>]*>(.*?)<\/A>/i);
     if (!bookmarkMatch) continue;
-
     const url = bookmarkMatch[1].trim();
     const title = bookmarkMatch[2].trim();
     if (!url || !title || !url.startsWith('http')) continue;
 
     const depth = parseFolderStack.length;
 
-    // 不在任何文件夹 → 未分类
-    if (depth === 0) {
-      if (!pageMap.has('未分类')) {
-        pageMap.set('未分类', { name: '未分类', items: [], components: [] });
+    // depth = 0：不在任何文件夹
+    if (depth === 0) { getOrCreatePage('未分类').items.push({ title, url }); continue; }
+
+    const topName = parseFolderStack[0];
+
+    // --- "书签栏"下 → 跳过这一层，它的子文件夹作为分页 ---
+    if (topName === '书签栏' || topName.includes('Bookmarks')) {
+      if (depth === 1) {
+        getOrCreatePage('未分类').items.push({ title, url });
+      } else if (depth === 2) {
+        const page = getOrCreatePage(parseFolderStack[1]);
+        const comp = getOrCreateComponent(page, '默认');
+        if (comp) comp.items.push({ title, url });
+      } else {
+        const page = getOrCreatePage(parseFolderStack[1]);
+        const comp = getOrCreateComponent(page, parseFolderStack[2]);
+        if (comp) {
+          const group = depth >= 4 ? parseFolderStack[3] : undefined;
+          comp.items.push({ title, url, group });
+        }
       }
-      pageMap.get('未分类')!.items.push({ title, url });
       continue;
     }
 
-    const pageName = parseFolderStack[0];
-    if (!pageMap.has(pageName)) {
-      pageMap.set(pageName, { name: pageName, items: [], components: [] });
-    }
-    const page = pageMap.get(pageName)!;
-
-    if (depth === 1) {
-      // 直接在一级文件夹下
-      page.items.push({ title, url });
-    } else {
-      // depth >= 2：在二级或更深的文件夹下
-      const compName = parseFolderStack[1];
-      let comp = page.components.find(c => c.name === compName);
-      if (!comp) {
-        comp = { name: compName, items: [] };
-        page.components.push(comp);
+    // --- "其他书签"下 → 全部归入未分类 ---
+    if (topName === '其他书签') {
+      const page = getOrCreatePage('未分类');
+      if (depth === 1) { page.items.push({ title, url }); }
+      else if (depth === 2) {
+        const comp = getOrCreateComponent(page, parseFolderStack[1]);
+        if (comp) comp.items.push({ title, url });
+      } else {
+        const comp = getOrCreateComponent(page, parseFolderStack[1]);
+        if (comp) {
+          const group = depth >= 3 ? parseFolderStack[2] : undefined;
+          comp.items.push({ title, url, group });
+        }
       }
-      // 三级及以上作为 group
-      const group = depth >= 3 ? parseFolderStack[2] : undefined;
-      comp.items.push({ title, url, group });
+      continue;
+    }
+
+    // --- 其他情况（非标准） ---
+    if (depth === 1) { getOrCreatePage(topName).items.push({ title, url }); }
+    else {
+      const page = getOrCreatePage(topName);
+      const comp = getOrCreateComponent(page, parseFolderStack[1]);
+      if (comp) {
+        const group = depth >= 3 ? parseFolderStack[2] : undefined;
+        comp.items.push({ title, url, group });
+      }
     }
   }
 
